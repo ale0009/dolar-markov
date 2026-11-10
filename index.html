@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>¿Sube o baja el dólar mañana?</title>
+  <meta name="description" content="Probabilidad de que la TRM (peso/dólar en Colombia) suba, baje o se quede igual, con una cadena de Markov sobre datos de datos.gov.co y una prueba honesta contra líneas base. No es consejo financiero.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bangers&family=IBM+Plex+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="css/estilo.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F9F9F7'/%3E%3Cpath d='M4 24l8-9 6 5 10-12' fill='none' stroke='%23CB433E' stroke-width='3.5'/%3E%3Cpath d='M22 8h6v6' fill='none' stroke='%23CB433E' stroke-width='3.5'/%3E%3C/svg%3E">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="saltar" href="#controles">Saltar a los controles</a>
+  <header class="cabecera">
+    <span class="kanji" aria-hidden="true">為替</span>
+    <div class="titulo">
+      <p class="antetitulo">TRM · cadena de Markov · datos.gov.co</p>
+      <h1>¿Sube o baja el dólar mañana?</h1>
+    </div>
+    <nav class="nav">
+      <a class="boton-linea" href="proceso/">Cómo se hizo</a>
+      <button type="button" class="boton-linea" id="tema" aria-label="Cambiar tema">Tema: auto</button>
+    </nav>
+  </header>
+
+  <main class="tablero">
+    <section class="respuesta vineta" aria-live="polite" aria-labelledby="veredicto">
+      <p class="pregunta">Para la próxima TRM, la cadena dice:</p>
+      <p class="veredicto" id="veredicto"><span class="cargando-txt">Calculando…</span></p>
+      <div class="probs" id="probs" aria-hidden="true"></div>
+      <p class="explica" id="explica">Pidiendo la serie de la TRM a datos.gov.co.</p>
+      <p class="honesto" id="honesto"></p>
+      <p class="aviso"><strong>No es consejo financiero.</strong> Es un ejercicio de probabilidad con datos públicos: no lo uses para comprar ni vender dólares.</p>
+      <p class="estado" id="estado"><span class="chip chip-carga">Cargando</span></p>
+    </section>
+
+    <section class="controles vineta" id="controles" aria-label="Ajustes del modelo">
+      <fieldset>
+        <legend>Ventana de estimación</legend>
+        <div class="segmentos">
+          <input type="radio" name="ventana" id="v90" value="90"><label for="v90">90 d</label>
+          <input type="radio" name="ventana" id="v180" value="180"><label for="v180">180 d</label>
+          <input type="radio" name="ventana" id="v365" value="365" checked><label for="v365">365 d</label>
+          <input type="radio" name="ventana" id="v730" value="730"><label for="v730">730 d</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>«Estable» si cambia menos de</legend>
+        <div class="segmentos">
+          <input type="radio" name="umbral" id="u01" value="0.1" checked><label for="u01">±0,1 %</label>
+          <input type="radio" name="umbral" id="u025" value="0.25"><label for="u025">±0,25 %</label>
+          <input type="radio" name="umbral" id="u05" value="0.5"><label for="u05">±0,5 %</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Estados</legend>
+        <div class="segmentos">
+          <input type="radio" name="k" id="k3" value="3" checked><label for="k3">3</label>
+          <input type="radio" name="k" id="k5" value="5"><label for="k5">5 (con «fuerte» &gt; 1 %)</label>
+        </div>
+      </fieldset>
+      <div class="deslizador">
+        <label for="n">Mirar <output id="n-out" for="n">5 días</output> hacia adelante</label>
+        <input type="range" id="n" min="1" max="20" step="1" value="5">
+      </div>
+    </section>
+
+    <figure class="diagrama-caja vineta" aria-labelledby="diag-t">
+      <h2 id="diag-t">La cadena <span class="sub">matriz de transición</span></h2>
+      <div class="lienzo-diag" id="diagrama"><div class="carga"><span>Dibujando…</span></div></div>
+      <figcaption>
+        El grosor de cada flecha es la probabilidad de pasar de un estado a otro en un día hábil; las que salen de <strong>HOY</strong> van en tinta plena.
+        <span id="diag-n"></span>
+      </figcaption>
+      <details class="numeros" open>
+        <summary>Ver la matriz en números</summary>
+        <div class="tabla-scroll" id="matriz"></div>
+      </details>
+    </figure>
+
+    <section class="prueba vineta" aria-labelledby="prueba-t">
+      <h2 id="prueba-t">La prueba honesta</h2>
+      <p class="prueba-sub" id="prueba-sub">¿Le gana Markov a adivinar sin modelo?</p>
+      <div class="sello" id="sello" hidden></div>
+      <div class="medidores" id="medidores"></div>
+      <div class="tira" id="tira"></div>
+      <p class="prueba-nota" id="prueba-nota"></p>
+    </section>
+
+    <section class="pronostico-caja vineta" aria-labelledby="pron-t">
+      <h2 id="pron-t">Los próximos días <span class="sub">Chapman-Kolmogorov: Pⁿ</span></h2>
+      <div id="pronostico"></div>
+      <div class="hud" id="hud"></div>
+    </section>
+
+    <figure class="serie-caja vineta" aria-labelledby="serie-t">
+      <h2 id="serie-t">La TRM <span class="sub">pesos por dólar</span></h2>
+      <div id="serie"></div>
+      <figcaption id="serie-cap">La zona sombreada es la ventana que se usa para estimar la matriz.</figcaption>
+    </figure>
+  </main>
+
+  <footer class="pie">
+    <p>Datos: <a href="https://www.datos.gov.co/Econom-a-y-Finanzas/Tasa-de-Cambio-Representativa-del-Mercado-TRM/32sa-8pi3">Tasa de Cambio Representativa del Mercado (TRM)</a>, datos.gov.co, conjunto 32sa-8pi3 (Superintendencia Financiera de Colombia). Esto no es consejo financiero ni una predicción oficial.</p>
+    <p class="creditos"><a href="https://github.com/ale0009" target="_blank" rel="noopener">Mario Puerta «ale0009»</a> × <a href="https://www.linkedin.com/in/davidalexanderrinconcorredorkuronoma/" target="_blank" rel="noopener">David Rincón «Kuronoma»</a> <a href="#">Portafolio</a></p>
+  </footer>
+</body>
+</html>

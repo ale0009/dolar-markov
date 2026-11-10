@@ -1,0 +1,11 @@
+{
+  "name": "dolar-markov",
+  "version": "1.0.0",
+  "description": "¿Sube o baja el dólar mañana? Cadena de Markov sobre la TRM de Colombia (datos.gov.co), con backtest honesto. Página estática sin build.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Mario Alejandro Puerta Alarcón",
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" }
+}

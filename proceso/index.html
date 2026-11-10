@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cómo se hizo · ¿Sube o baja el dólar mañana?</title>
+  <meta name="description" content="Del ejercicio de clase (ciclo de vida de un producto con una cadena de Markov absorbente y Chapman-Kolmogorov) a datos reales de la TRM, con fórmulas, backtest y limitaciones.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bangers&family=IBM+Plex+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="../css/estilo.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F9F9F7'/%3E%3Cpath d='M4 24l8-9 6 5 10-12' fill='none' stroke='%23CB433E' stroke-width='3.5'/%3E%3Cpath d='M22 8h6v6' fill='none' stroke='%23CB433E' stroke-width='3.5'/%3E%3C/svg%3E">
+  <script type="module" src="../js/proceso.js"></script>
+</head>
+<body class="pagina-proceso">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="cabecera">
+    <span class="kanji" aria-hidden="true">記録</span>
+    <div class="titulo">
+      <p class="antetitulo">Proceso · ¿Sube o baja el dólar mañana?</p>
+      <h1>Cómo se hizo</h1>
+    </div>
+    <nav class="nav">
+      <a class="boton-linea" href="../">Volver a la herramienta</a>
+      <button type="button" class="boton-linea" id="tema" aria-label="Cambiar tema">Tema: auto</button>
+    </nav>
+  </header>
+
+  <main class="articulo" id="contenido">
+    <nav class="indice vineta" aria-label="En esta página">
+      <ol>
+        <li><a href="#problema">El problema</a></li>
+        <li><a href="#clase">El ejercicio de clase</a></li>
+        <li><a href="#datos">Los datos</a></li>
+        <li><a href="#formulas">Las fórmulas</a></li>
+        <li><a href="#estados">Estados y umbral</a></li>
+        <li><a href="#backtest">La prueba honesta</a></li>
+        <li><a href="#diseno">Decisiones de diseño</a></li>
+        <li><a href="#limites">Limitaciones</a></li>
+        <li><a href="#fuentes">Fuentes</a></li>
+      </ol>
+    </nav>
+
+    <section id="problema" class="bloque">
+      <h2>1 · El problema</h2>
+      <p>En Colombia casi todo el mundo se pregunta alguna vez si el dólar va a subir. La respuesta seria es que <strong>nadie lo sabe</strong>, pero la pregunta sirve para algo útil: probar una herramienta de procesos estocásticos con datos reales y medir, sin maquillaje, si predice algo.</p>
+      <p>La herramienta toma la TRM oficial, clasifica cada cambio diario en <em>baja</em>, <em>estable</em> o <em>sube</em>, estima una cadena de Markov y calcula la probabilidad de cada estado para la próxima TRM y para los siguientes n días. Después se juzga a sí misma contra dos rivales sin modelo.</p>
+      <p class="aviso"><strong>No es consejo financiero.</strong> Es un ejercicio académico. La conclusión de la sección 6 es, justamente, que la cadena no le gana a adivinar con la frecuencia simple.</p>
+    </section>
+
+    <section id="clase" class="bloque">
+      <h2>2 · De dónde sale: el ejercicio de clase</h2>
+      <p>En la materia de procesos estocásticos, Mario y David presentaron (con un compañero de equipo) el <strong>ciclo de vida de un producto tipo iPhone</strong> como cadena de Markov con cuatro estados: alta demanda, demanda estable, baja demanda y descontinuado. En otra exposición trabajaron la <strong>ecuación de Chapman-Kolmogorov</strong>: cómo pasar de la probabilidad de un paso a la de n pasos. Los apuntes de clase de ese semestre insisten en lo mismo: definir los estados, la distribución inicial y la matriz de transición.</p>
+      <div class="dos-col">
+        <figure class="vineta figura">
+          <h3>La cadena del producto</h3>
+          <div id="d-iphone" class="lienzo-diag"></div>
+          <figcaption>Mismo componente que la herramienta. «Descontinuado» tiene doble borde: es <strong>absorbente</strong> (P = 1 de quedarse ahí para siempre).</figcaption>
+        </figure>
+        <div>
+          <div class="tabla-scroll" id="t-iphone"></div>
+          <div class="tabla-scroll" id="t-iphone2"></div>
+          <p>La clase calculaba P² a mano. Por ejemplo, de alta demanda a alta demanda en dos periodos: 0,6·0,6 + 0,3·0,2 + 0,1·0,1 + 0·0 = <strong>0,43</strong>. Es Chapman-Kolmogorov con m = n = 1.</p>
+        </div>
+      </div>
+      <div class="dos-col">
+        <div>
+          <h3>Tiempo hasta descontinuarse (calculado aquí)</h3>
+          <p>En una cadena absorbente la pregunta interesante no es el largo plazo (siempre termina descontinuado), sino <em>cuánto tarda</em>. Con la matriz fundamental N = (I − Q)⁻¹, donde Q son las transiciones entre estados transitorios, el tiempo esperado es t = N · 1:</p>
+          <div class="hud" id="absorcion"></div>
+        </div>
+        <div class="tabla-scroll" id="t-evol"></div>
+      </div>
+      <aside class="vineta errata">
+        <h3>Fe de erratas del trabajo de clase</h3>
+        <p>La diapositiva «Estado estacionario» da 40 % alta, 35 % estable, 20 % baja y 5 % descontinuado. Con esa misma matriz eso <strong>no puede ser</strong> el estado estacionario: como «descontinuado» es absorbente y se alcanza desde todos los estados, la única distribución estacionaria es (0, 0, 0, 1). Al hacer las cuentas aquí, la distribución después de dos periodos empezando en alta demanda es 43 %, 36 %, 16 % y 5 %, muy cercana a la de la diapositiva; probablemente de ahí salió el número. La herramienta corrige este error: la estacionaria se calcula resolviendo π P = π y se prueba con esta misma matriz.</p>
+      </aside>
+      <h3>El salto al dólar</h3>
+      <p>El ejercicio usaba una matriz <strong>supuesta</strong>, no estimada con datos. El paso siguiente natural era estimarla con datos reales y comprobar si predice. La TRM es ideal: es pública, diaria, oficial y tiene casi 35 años de historia en datos abiertos. Los estados ya no son «alta» o «baja demanda», sino el sentido del cambio diario, y ya no hay estado absorbente: el dólar siempre puede volver a subir o a bajar.</p>
+    </section>
+
+    <section id="datos" class="bloque">
+      <h2>3 · Los datos</h2>
+      <p>La TRM la calcula y certifica la Superintendencia Financiera de Colombia como el promedio ponderado de las compras y ventas de dólares de contado del día. Se publica en <a href="https://www.datos.gov.co/d/32sa-8pi3">datos.gov.co (conjunto 32sa-8pi3)</a> con una API Socrata abierta, sin clave y con CORS (<code>Access-Control-Allow-Origin: *</code>), así que el navegador la consulta directamente:</p>
+      <pre class="codigo">GET https://www.datos.gov.co/resource/32sa-8pi3.json
+    ?$select=valor,vigenciadesde
+    &amp;$order=vigenciadesde DESC
+    &amp;$limit=1000</pre>
+      <ul>
+        <li><strong>Campos:</strong> <code>valor</code> (pesos por dólar), <code>unidad</code> (COP), <code>vigenciadesde</code> y <code>vigenciahasta</code>.</li>
+        <li><strong>Un paso = una TRM nueva.</strong> El fin de semana y los festivos comparten una sola TRM (por ejemplo, la TRM vigente desde el sábado 7 nov 2026 rigió hasta el lunes 9), así que los «días» del modelo son días hábiles.</li>
+        <li><strong>La TRM de mañana se publica hoy.</strong> Por eso la herramienta habla de «la próxima TRM»: la última ya publicada suele regir desde el día siguiente.</li>
+        <li><strong>Se piden 1000 TRM</strong> (unos 4 años): alcanzan para la ventana más larga (730 días) más 250 días de prueba.</li>
+        <li><strong>Respaldo:</strong> <code>datos/ejemplo-2026-11-10.json</code>, las mismas 1000 TRM descargadas el 10 nov 2026. Se usa si la API falla y se marca como «sin conexión».</li>
+      </ul>
+      <p class="origen" id="origen"><span class="chip chip-carga">Cargando</span> Consultando datos.gov.co…</p>
+    </section>
+
+    <section id="formulas" class="bloque">
+      <h2>4 · Las fórmulas</h2>
+      <div class="dos-col">
+        <div>
+          <h3>1. Cambio y estado</h3>
+          <p class="formula">r<sub>t</sub> = (TRM<sub>t</sub> − TRM<sub>t−1</sub>) / TRM<sub>t−1</sub> × 100<br>X<sub>t</sub> = baja si r<sub>t</sub> &lt; −u · estable si |r<sub>t</sub>| ≤ u · sube si r<sub>t</sub> &gt; u</p>
+          <h3>2. Matriz estimada (máxima verosimilitud)</h3>
+          <p class="formula">P<sub>ij</sub> = n<sub>ij</sub> / n<sub>i</sub><br><small>n<sub>ij</sub>: veces que a «i» le siguió «j» dentro de la ventana.</small></p>
+          <h3>3. Chapman-Kolmogorov</h3>
+          <p class="formula">P<sup>(m+n)</sup> = P<sup>(m)</sup> · P<sup>(n)</sup> ⇒ P<sup>(n)</sup> = P<sup>n</sup><br>pronóstico a n días = fila del estado de hoy en P<sup>n</sup></p>
+        </div>
+        <div>
+          <h3>4. Distribución estacionaria</h3>
+          <p class="formula">π P = π,  Σ π<sub>i</sub> = 1<br><small>Se resuelve como sistema lineal (eliminación gaussiana).</small></p>
+          <h3>5. Tiempo esperado de regreso</h3>
+          <p class="formula">m<sub>i</sub> = 1 / π<sub>i</sub><br><small>Días hábiles, en promedio, entre dos visitas al estado i.</small></p>
+          <h3>6. Puntaje de Brier (calidad de las probabilidades)</h3>
+          <p class="formula">B = Σ<sub>j</sub> (p<sub>j</sub> − o<sub>j</sub>)²<br><small>o<sub>j</sub> = 1 si pasó j. 0 es perfecto; 2 es el peor caso.</small></p>
+        </div>
+      </div>
+      <div class="dos-col">
+        <figure class="vineta figura">
+          <h3>La cadena real hoy (±0,1 %, 365 días)</h3>
+          <div id="d-dolar" class="lienzo-diag"></div>
+        </figure>
+        <div class="tabla-scroll" id="t-dolar"></div>
+      </div>
+    </section>
+
+    <section id="estados" class="bloque">
+      <h2>5 · Por qué esos estados y ese umbral</h2>
+      <p>Un cambio nulo casi no existe (solo 6 de los 999 cambios del respaldo, de ago 2022 a nov 2026, redondean a 0,00 %; calculado aquí), así que «igual» necesita un margen. Se eligió <strong>±0,1 %</strong> como valor por defecto porque es pequeño frente a la variación típica (una desviación estándar de 0,84 % por día en esos mismos datos, calculado aquí) y deja «estable» como un estado raro pero real: el 11 % de los días. Con ±0,5 % «estable» se vuelve el estado más frecuente y la pregunta cambia a «¿se mueve mucho o poco?».</p>
+      <p>Las <strong>5 categorías</strong> separan los movimientos fuertes (más de 1 % en un día) porque son los que la gente nota. Con 5 estados hay 25 probabilidades que estimar con los mismos datos: cada una con menos evidencia.</p>
+      <div class="dos-col">
+        <figure class="vineta figura">
+          <h3>Cambios diarios de los últimos 750 días hábiles</h3>
+          <div id="g-hist" class="g-caja"></div>
+          <figcaption>Barras de 0,1 puntos; las líneas rojas marcan ±0,1 %. Los colores son los de los estados.</figcaption>
+        </figure>
+        <div class="tabla-scroll" id="t-reparto"></div>
+      </div>
+    </section>
+
+    <section id="backtest" class="bloque">
+      <h2>6 · La prueba honesta</h2>
+      <p>Para cada uno de los últimos 250 días hábiles se estima la matriz <strong>solo con la ventana anterior</strong> a ese día (prueba hacia adelante o <em>walk-forward</em>: nunca se mira el futuro) y se predice la categoría del día siguiente. Se compara con dos líneas base sin modelo:</p>
+      <ul>
+        <li><strong>«Mañana igual que hoy»</strong> (persistencia): repite la categoría de hoy.</li>
+        <li><strong>«Lo más frecuente»</strong>: la categoría más común de la ventana, sin mirar el estado de hoy.</li>
+      </ul>
+      <p>Markov solo «gana» si su ventaja sobre la mejor línea base supera <strong>dos errores estándar</strong> de la diferencia pareada día a día; si queda dos errores por debajo, «pierde»; en medio, empate técnico.</p>
+      <div class="vineta cifras">
+        <h3>Resultado con datos hasta el 11 nov 2026 (calculado aquí)</h3>
+        <p>Configuración por defecto (3 estados, ±0,1 %, ventana de 365 días), del 18 oct 2025 al 11 nov 2026: Markov acierta el <strong>48,0 %</strong>, «mañana igual que hoy» el <strong>44,8 %</strong> y «lo más frecuente» el <strong>49,6 %</strong>. En Brier: 0,583, 1,104 y 0,580. <strong>Markov no gana</strong>: queda 1,6 puntos por debajo de la frecuencia simple (error estándar ±1,1).</p>
+        <p>En las 24 combinaciones probadas (3 umbrales × 4 ventanas × 3 o 5 estados), Markov <strong>no ganó ninguna</strong>, perdió con claridad en 2 y empató en 22. Sí supera a «mañana igual que hoy» en 17 de las 24: el dólar casi no tiene «inercia» de un día para otro.</p>
+        <p>Con los datos cargados ahora, en la configuración por defecto:</p>
+        <ul id="bt-base"><li>Calculando…</li></ul>
+        <p id="bt-resumen"></p>
+      </div>
+      <div class="dos-col">
+        <div class="tabla-scroll" id="bt3"></div>
+        <div class="tabla-scroll" id="bt5"></div>
+      </div>
+      <p class="nota-fuente">Que una cadena de Markov no le gane a la frecuencia simple coincide con lo que suele encontrar la literatura: desde Meese y Rogoff (1983) se sabe que es muy difícil predecir tasas de cambio a corto plazo mejor que una caminata aleatoria. La matriz estimada tiene filas muy parecidas entre sí, y eso es justamente lo que significa «el estado de hoy casi no informa sobre el de mañana».</p>
+    </section>
+
+    <section id="diseno" class="bloque">
+      <h2>7 · Decisiones de diseño</h2>
+      <ol class="decisiones">
+        <li><strong>La respuesta arriba y la prueba al lado.</strong> El veredicto grande («SUBE 46 %») nunca aparece sin la frase que dice si el modelo le gana o no a adivinar. El sello «NO GANA» es parte de la respuesta, no una nota al pie.</li>
+        <li><strong>Diagrama antes que tabla.</strong> La matriz se ve como cadena: las flechas tienen grosor proporcional a la probabilidad y las que salen de HOY van en tinta plena. La tabla queda abajo para quien quiera los números.</li>
+        <li><strong>Colores con significado:</strong> rojo = sube (el peso se debilita), cian = baja, papel = estable. En 5 estados, los tonos oscuros son los movimientos fuertes.</li>
+        <li><strong>Toque de videojuego útil:</strong> la tira de los últimos 30 días y el «combo» (mejor racha de aciertos) muestran el backtest de un vistazo.</li>
+        <li><strong>Sin servidor ni librerías:</strong> todo el álgebra (potencias, sistema lineal, matriz fundamental) está en <code>js/markov.js</code> con pruebas <code>node --test</code>.</li>
+      </ol>
+      <div class="dos-col">
+        <div>
+          <h3>Paleta por estado</h3>
+          <div class="paleta">
+            <span class="e-baja-f">Baja fuerte<br><code>#24597A</code></span>
+            <span class="e-baja">Baja<br><code>#438FB8</code></span>
+            <span class="e-estable">Estable<br><code>#ECEBE5</code></span>
+            <span class="e-sube">Sube<br><code>#CB433E</code></span>
+            <span class="e-sube-f">Sube fuerte<br><code>#8E2A27</code></span>
+            <span class="e-desc">Absorbente<br><code>#0A090A</code></span>
+          </div>
+        </div>
+        <div>
+          <h3>Versiones descartadas</h3>
+          <p><strong>v1:</strong> solo la tabla de la matriz con un mapa de calor. Era exacta pero no se leía como «cadena».<br><strong>v2:</strong> diagrama con flechas de igual grosor y la probabilidad escrita. Había que leer 9 números para entenderlo.<br><strong>v3 (actual):</strong> grosor proporcional, flechas del estado actual resaltadas y la tabla como respaldo.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="limites" class="bloque">
+      <h2>8 · Limitaciones</h2>
+      <ul>
+        <li><strong>Supuesto de Markov:</strong> se asume que mañana depende solo de la categoría de hoy. Ignora la magnitud exacta del cambio, las rachas más largas, el petróleo, las tasas de interés y las noticias. La presentación de clase ya lo advertía: el modelo «no considera factores externos».</li>
+        <li><strong>No estacionariedad:</strong> la matriz cambia con el tiempo (por eso hay ventanas). Con 90 días hay pocas transiciones y la matriz es ruidosa; con 730 días se mezclan épocas distintas del mercado. Ninguna ventana resolvió el problema en la prueba.</li>
+        <li><strong>Discretizar pierde información:</strong> un cambio de +0,11 % y uno de +2 % son el mismo estado con 3 categorías.</li>
+        <li><strong>El backtest cubre solo 250 días</strong> (un año). Con más días el error estándar baja, pero se mezclan regímenes diferentes.</li>
+        <li><strong>Días hábiles, no de calendario:</strong> «n días» en el pronóstico significa n TRM nuevas.</li>
+        <li><strong>La regla de los dos errores estándar es una aproximación</strong> (prueba pareada normal); no corrige por haber probado 24 combinaciones.</li>
+      </ul>
+    </section>
+
+    <section id="fuentes" class="bloque">
+      <h2>9 · Fuentes</h2>
+      <ol class="fuentes">
+        <li>Superintendencia Financiera de Colombia. <em>Tasa de Cambio Representativa del Mercado – TRM</em>. Datos abiertos, conjunto 32sa-8pi3: <a href="https://www.datos.gov.co/d/32sa-8pi3">datos.gov.co/d/32sa-8pi3</a>.</li>
+        <li>Socrata. <em>SoQL queries</em> (documentación de la API): <a href="https://dev.socrata.com/docs/queries/">dev.socrata.com/docs/queries</a>.</li>
+        <li>Grinstead, C. M. y Snell, J. L. <em>Introduction to Probability</em>, cap. 11 «Markov Chains» (cadenas absorbentes, matriz fundamental, tiempo medio de regreso). AMS, libro libre: <a href="https://math.dartmouth.edu/~prob/prob/prob.pdf">math.dartmouth.edu/~prob/prob/prob.pdf</a>.</li>
+        <li>Meese, R. A. y Rogoff, K. (1983). Empirical exchange rate models of the seventies: Do they fit out of sample? <em>Journal of International Economics</em>, 14(1–2), 3–24: <a href="https://doi.org/10.1016/0022-1996(83)90017-X">doi.org/10.1016/0022-1996(83)90017-X</a>.</li>
+        <li>Brier, G. W. (1950). Verification of forecasts expressed in terms of probability. <em>Monthly Weather Review</em>, 78(1), 1–3: <a href="https://doi.org/10.1175/1520-0493(1950)078%3C0001:VOFEIT%3E2.0.CO;2">doi.org/10.1175/1520-0493(1950)078&lt;0001:VOFEIT&gt;2.0.CO;2</a>.</li>
+        <li>Trabajos de clase de procesos estocásticos de Mario y David: «Producto iPhone en el mercado con cadenas de Markov» y «Ecuación de Chapman-Kolmogorov» (presentaciones), y apuntes de clase (no publicados).</li>
+      </ol>
+      <a class="volver" href="../">Volver a la herramienta</a>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <p>No es consejo financiero. Las cifras marcadas «calculado aquí» no están en la fuente: salen de los módulos de esta herramienta.</p>
+    <p class="creditos"><a href="https://github.com/ale0009" target="_blank" rel="noopener">Mario Puerta «ale0009»</a> × <a href="https://www.linkedin.com/in/davidalexanderrinconcorredorkuronoma/" target="_blank" rel="noopener">David Rincón «Kuronoma»</a> <a href="#">Portafolio</a></p>
+  </footer>
+</body>
+</html>
